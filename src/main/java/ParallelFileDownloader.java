@@ -20,7 +20,10 @@ public class ParallelFileDownloader {
         this.httpClient = httpClient;
     }
 
-    // Builder of default http client in production environment
+    /**
+     * Factory method for creating default HttpClient with predefined configuration
+     * @return HttpClient instance with HTTP/2, normal redirects and 20 seconds connection timeout
+     */
     public static HttpClient createDefaultHttpClient() {
         return HttpClient.newBuilder()
                 .version(HttpClient.Version.HTTP_2)
@@ -29,6 +32,13 @@ public class ParallelFileDownloader {
                 .build();
     }
 
+    /**
+     * Main method responsible for downloading file in parallel by splitting it into chunks and sending multiple requests with Range header.
+     * @param targetUrl URL of the file to be downloaded
+     * @param destination Path where the file should be saved after downloading and merging
+     * @param numberOfChunks number of parallel requests to be sent, also determines how many temporary files will be created for individual chunks
+     * @throws Exception in case of any error during downloading or merging files, exception will be thrown with the message describing the problem
+     */
     public void downloadFile(String targetUrl, Path destination, int numberOfChunks) throws Exception {
         //Build and send HEAD request to receive metadata
         HttpRequest headRequest = HttpRequest.newBuilder()
@@ -123,7 +133,12 @@ public class ParallelFileDownloader {
                 + destination.toAbsolutePath());
     }
 
-    //Support method responsible for mathematical slicing the file
+    /**
+     * Calculate byte ranges for each chunk based on content length and number of chunks.
+     * @param contentLength total size of the file in bytes
+     * @param numberOfChunks number of parallel chunks to split the file into, also determines how many temporary files will be created for individual chunks
+     * @return List of ChunkInfo objects containing metadata for each chunk (start byte, end byte and index)
+     */
     private List<ChunkInfo> calculateRanges(long contentLength, int numberOfChunks) {
         List<ChunkInfo> ranges = new ArrayList<>();
         long chunkSize = contentLength / numberOfChunks;
@@ -139,6 +154,8 @@ public class ParallelFileDownloader {
         return ranges;
     }
 
-    //Support class containing metadata of single chunk
+    /**
+     * Simple record class to store metadata for each chunk (start byte, end byte and index)
+     */
     record ChunkInfo(long startByte, long endByte, int index) { }
 }
