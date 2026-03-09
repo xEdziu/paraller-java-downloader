@@ -3,7 +3,7 @@ import java.nio.file.Paths;
 
 public class Main {
     public static final String DOWNLOAD_URL = "http://localhost:8080/my-test-file.txt";
-    public static final Path TARGET_DIR = Paths.get("src/main/java/Main.java");
+    public static final Path TARGET_DIR = Paths.get("src/main/java/my-test-file.txt");
     public static final Integer NUMBER_OF_CHUNKS = 4;
 
     public static void main(String[] args) {

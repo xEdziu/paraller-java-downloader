@@ -6,6 +6,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 public class ParallelFileDownloader {
 
@@ -53,6 +54,43 @@ public class ParallelFileDownloader {
         for (ChunkInfo chunk : chunks) {
             System.out.println("Chunk: " + chunk.index + ": bytes " + chunk.startByte + " - " + chunk.endByte);
         }
+
+        // List for Tasks and tmp files paths
+        List<CompletableFuture<Path>> downloadTasks = new ArrayList<>();
+        List<Path> tempFiles = new ArrayList<>();
+
+        System.out.println("Starting parallel download...");
+        for (ChunkInfo chunk : chunks) {
+            // Create unique temp file path for each fragment
+            Path tempFile = destination.resolveSibling(destination.getFileName() + ".part" + chunk.index);
+            tempFiles.add(tempFile);
+
+            //Create GET request with Range header
+            HttpRequest chunkRequest = HttpRequest.newBuilder()
+                    .uri(URI.create(targetUrl))
+                    .GET()
+                    .header("Range", "bytes=" + chunk.startByte + "-" + chunk.endByte)
+                    .build();
+
+            //Send async request
+            //We use BodyHandlers.ofFile which omit JVM heap, streaming data straight to our storage
+            CompletableFuture<Path> task = httpClient.sendAsync(chunkRequest, HttpResponse.BodyHandlers.ofFile(tempFile))
+                    .thenApply(HttpResponse::body)
+                    .exceptionally(ex -> {
+                        System.err.println("Error downloading chunk" + chunk.index + ": " + ex.getMessage());
+                        throw new RuntimeException("Error downloading chunk" + chunk.index + ": " + ex.getMessage());
+                    });
+            downloadTasks.add(task);
+        }
+
+        // We wait for downloading all chunks
+        System.out.println("Waiting for downloading all chunks.");
+
+        CompletableFuture<Void> allFutures = CompletableFuture.allOf(downloadTasks.toArray(CompletableFuture[]::new));
+
+        allFutures.join();
+
+        System.out.println("All chunks downloaded.");
     }
 
     //Support method responsible for mathematical slicing the file
